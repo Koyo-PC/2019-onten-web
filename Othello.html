@@ -1,0 +1,341 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>オセロ</title>
+</head>
+<body>
+	<center>
+		<div id="targetDiv"></div>
+        <svg id="targetSvg" viewBox="0 0 400 400" width="400" height="400">
+            <rect x="0" y="0" width="500" height="500" fill="#009900"/>
+            <path id="tp" d="M 1,0 V 500 M 50,0 V 500 M 100,0 V 500 M 150,0 V 500 M 200,0 V 500 M 250,0
+            V 500 M 300,0 V 500 M 350,0 V 500 M 399,0 V 500 M 0,1 H 500 M 0,50 H 500 M 0,100 H 500 M 0,150
+            H 500 M 0,200 H 500 M 0,250 H 500 M 0,300 H 500 M 0,350 H 500 M 0,399 H 500" stroke="black" stroke-width="2" fill="none"/>
+        </svg>
+        <button id="passButton" onclick="pass()">パス</button>
+        <p id="turnP"></p>
+        <p id="currentP"></p>
+        <h1 id="resultP"></h1>
+        <button onclick="reset()">リセット</button>
+	</center>
+    <script>
+        var turn = 0, color1, color2, state1 = [], state2 = [], list = [], haveStone = []
+        , typeState = [], best = [], bestPosition = [[],[],[]], first2 = 0;
+        var targetSvg = document.getElementById("targetSvg");
+        var passButton = document.getElementById("passButton");
+        var turnP = document.getElementById("turnP");
+        var resultP = document.getElementById("resultP");
+        var currentP = document.getElementById("currentP");
+        for(let i = 0; i < 64; i++){
+            state1.push("none");
+        }
+        reset();
+
+        document.getElementById("targetSvg").addEventListener( "click", (event) => {
+            if(turn == 1 && passButton.style.display != "block"){
+                judge(Math.floor(event.offsetX / 50) + 1, Math.floor(event.offsetY / 50) + 1, 0);
+            }
+        });
+
+        function reset(){
+            let checkX = 0, checkY = 0;
+            for(let i = 1; i < 9; i++){
+                checkY = i;
+                for(let i = 1; i < 9; i++){
+                    checkX = i;
+                    if(state1[checkX+checkY*8-9] != "none"){
+                        targetSvg.removeChild(document.getElementById(`image${checkX}${checkY}`));
+                        state1[checkX+checkY*8-9] = "none";
+                    }
+                }
+            }
+            turn = 0, color1, color2, haveStone = [];
+            resultP.style.display = "none";
+            passButton.style.display = "none";
+            turnP.style.display = "block";
+            turnColor();
+            colorSet();
+            put(4, 4, color2);
+            put(4, 5, color1);
+            put(5, 4, color1);
+            put(5, 5, color2);
+            count();
+            think();
+        }
+
+        function put(a,b,c){
+                targetSvg.insertAdjacentHTML("beforeend",`<svg viewBox="0 0 50 50" width="50" height="50"
+                x="${(a-1)*50}" y="${(b-1)*50}" id="image${a}${b}"><circle cx="25" cy="25" r="15" fill="${c}"/></svg>`);
+                state1[a+b*8-9] = c;
+                haveStone.push(`image${a}${b}`);
+        }
+
+        function judge(a,b,c){
+            let result = false, number = 0, newX, newY;
+            typeState[0] = [...state1];
+            const direction = [[1,1],[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[-1,1],[0,1]];
+            if(c > 0){
+                typeState[c] = [...typeState[c-1]];
+                list = [];
+            }
+            if(!haveStone.includes(`image${a}${b}`)){
+                colorSet(); //colorSetされてる
+                for(let mode = 0; mode < 8; mode++){
+                    newX = a + direction[mode][0];
+                    newY = b + direction[mode][1];
+                    number = 0;
+                    if(!haveStone.includes(`image${newX}${newY}`)){
+                        continue;
+                    } else {
+                        while(typeState[c][newX+newY*8-9] == color2){
+                            newX += direction[mode][0];
+                            newY += direction[mode][1];
+                            number++;
+                            if(typeState[c][newX+newY*8-9] == color1 && haveStone.includes(`image${newX}${newY}`)){
+                                result = 1;
+                                while(number > 0){
+                                    number--;
+                                    newX -= direction[mode][0];
+                                    newY -= direction[mode][1];
+                                    list.push(newX+newY*8-9);
+                                    if(c == 0){
+                                        targetSvg.removeChild(document.getElementById(`image${newX}${newY}`));
+                                        targetSvg.insertAdjacentHTML("beforeend",`<svg viewBox="0 0 50 50" width="50" height="50"
+                                        x="${(newX-1)*50}" y="${(newY-1)*50}" id="image${newX}${newY}">
+                                        <ellipse cx="25" cy="25" rx="15" ry="15" fill="${color1}">
+                                            <animate attributeName="rx" dur="0.5s" values="15;0;15" repeatCount="1"/>
+                                            <animate attributeName="fill" dur="0.5s" values="${color2};${color1}" repeatCount="1"/>
+                                        </ellipse></svg>`);
+                                    }
+                                    typeState[c][newX+newY*8-9] = color1;
+                                    typeState[c][a+b*8-9] = color1;
+                                }                                
+                            }
+                        }
+                    }             
+                }
+                if(result == 1 && c == 0){
+                    targetSvg.insertAdjacentHTML("beforeend",`<svg viewBox="0 0 50 50" width="50" height="50"
+                    x="${(a-1)*50}" y="${(b-1)*50}" id="image${a}${b}"><circle cx="25" cy="25" r="15" fill="${color1}"/></svg>`);
+                    haveStone.push(`image${a}${b}`);
+                    state1 = [...typeState[0]];
+                    turnChange();
+                    turnColor();
+                    count();
+                    if(!check()){
+                        turnChange();
+                        if(!check()){
+                            turnP.style.display = "none";
+                            count(1);
+                        } else {
+                            turnChange();
+                        }
+                    }
+                    if(turn == 0){
+                        think();
+                    }
+                }
+            }
+            return result;
+        }
+        function turnChange(){
+            if(turn == 1){
+                turn = 0;
+            } else {
+                turn = 1;
+            }
+        }
+
+        function colorSet(){
+                if(turn == 0){
+                    color1 = "#111111";
+                    color2 = "#EEEEEE";
+                } else {
+                    color1 = "#EEEEEE";
+                    color2 = "#111111";
+                }
+        }
+
+        function check(){
+            colorSet();
+            let checkX = 0, checkY = 0;
+            for(let i = 1; i < 9; i++){
+                checkY = i;
+                for(let i = 1; i < 9; i++){
+                    checkX = i;
+                    if(judge(checkX,checkY,1)){
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function turnColor(){
+            if(turn == 1){
+                turnP.innerHTML = "あなたの番です";
+            } else {
+                turnP.innerHTML = "コンピューターの番です"
+            }
+        }
+
+        function pass(){
+            turn++;
+            turnColor();
+            think();
+            passButton.style.display = "none";
+        }
+
+        function count(a){
+            let white = 0, black = 0;
+            state1.forEach((value) => {
+                if(value == "#111111"){
+                    black++;
+                } else if(value == "#EEEEEE"){
+                    white++;
+                }
+            });
+            currentP.innerHTML = `白:${white}石 黒:${black}石`;
+            if(a == 1){
+                resultP.style.display = "block";
+                if (black == 0){
+                    resultP.innerHTML = `白の64石勝ち`;
+                } else if (white == 0){
+                    resultP.innerHTML = `黒の64石勝ち`;
+                } else if(white > black){
+                    resultP.innerHTML = `白の${white-black}石勝ち`;
+                } else if (black > white){
+                    resultP.innerHTML = `黒の${black-white}石勝ち`;
+                } else {
+                    resultP.innerHTML = "引き分け";
+                }
+                turnP.style.display = "none";
+            }
+        }
+
+        function think(){
+            let checkX = 0, checkY = 0,
+            bestbest = -10000, bestbestPosition = [];
+            for(let i = 1; i < 9; i++){
+                checkY = i, best = [], first2 = 0, turn = 0;
+                for(let i = 1; i < 9; i++){
+                    checkX = i;
+                    yomi(checkX,checkY,1);
+                    if(list.length == 0){
+                        continue;
+                    }
+                    judge(bestPosition[0][Math.floor(Math.random() * bestPosition[0].length)][0],
+                        bestPosition[0][Math.floor(Math.random() * bestPosition[0].length)][1],1);
+                    let checkX2 = 0, checkY2 = 0;
+                    for(let i = 1; i < 9; i++){
+                        checkY2 = i, first2 = 0, turn = 1;
+                        for(let i = 1; i < 9; i++){
+                            checkX2 = i;
+                            yomi(checkX2,checkY2,2);
+                            if(bestPosition[1].length == 0){
+                                continue;
+                            }
+                            judge(bestPosition[1][Math.floor(Math.random() * bestPosition[1].length)][0],
+                                bestPosition[1][Math.floor(Math.random() * bestPosition[1].length)][1],2);
+                            let checkX3 = 0, checkY3 = 0;
+                            for(let i = 1; i < 9; i++){
+                                checkY3 = i, turn = 0;
+                                for(let i = 1; i < 9; i++){
+                                    checkX3 = i;
+                                    yomi(checkX3,checkY3,3);
+                                    if(bestPosition[2].length == 0){
+                                        continue;
+                                    }
+                                    judge(bestPosition[2][Math.floor(Math.random() * bestPosition[2].length)][0],
+                                        bestPosition[2][Math.floor(Math.random() * bestPosition[2].length)][1],3);
+                                }
+                            }
+                        }
+                    }    
+                    if(best[0]-best[1]+best[2] > bestbest){
+                        bestbest = best[0]-best[1]+best[2];
+                        bestbestPosition = [[checkX,checkY]];
+                        console.log(best[0],best[1],best[2]);
+                    } else if(bestbest == best[0]-best[1]+best[2]){
+                        bestbestPosition.push([checkX,checkY]);
+                        console.log(best[0],best[1],best[2]);
+                    }
+                }
+            }
+            setTimeout(() => {
+                if(bestbestPosition.length == 0){
+                    turnP.innerHTML = "コンピューターは石を置けませんでした。あなたの番です。"
+                    turn = 1;
+                    if(!check()){
+                        turnP.style.display = "none";
+                        count(1);
+                    }
+                } else {
+                    let comPosition = Math.floor(Math.random() * bestbestPosition.length);
+                    console.log(bestbestPosition[comPosition][0], bestbestPosition[comPosition][1]);
+                    judge(bestbestPosition[comPosition][0], bestbestPosition[comPosition][1],0);
+                    count();
+                    turn = 1;
+                    if(!check()){
+                        turn = 0;
+                        if(!check()){
+                            turnP.style.display = "none";
+                            count(1);
+                        } else {
+                            turn = 1;
+                            passButton.style.display = "block";
+                        }
+                    }
+                }
+            }, 700);
+        }
+        function yomi(a,b,c){
+            let point = 0;
+            let corner = [0,7,56,63];
+            let plus = [2,3,4,5,16,24,32,40,23,31,39,47,58,59,60,61];
+            let plus2 = [27,28,35,36];
+            let minus = [1,8,9,6,14,15,48,49,57,54,55,62, 10,11,12,13,50,51,52,53,17,25,33,41,22,30,38,46];
+            judge(a,b,c);
+            if(list.length != 0){
+                list.push(a+b*8-9);
+                point += list.length;
+                list.forEach((value) => {
+                    if(corner.includes(value)){
+		 	if(c != 3){
+			    point += 1000;
+			} else {
+			    point += 500;
+			}
+                    }
+                    if(plus.includes(value)){
+                        point += 30;
+                    }
+                    if(plus2.includes(value)){
+                        point += 2;
+                    }
+                    if(minus.includes(value)){
+                        point -= 11;
+                    }
+                });
+
+                first2++;
+                if(first2 == 1){
+                    best[c-1] = point;
+                }
+                if(point > best[c-1]){
+                    best[c-1] = point;
+                    bestPosition[c-1] = [a,b];
+                } else if(point == best[c-1]){
+                    bestPosition[c-1].push([a,b]);
+                }
+            } else if(bestPosition[c-1] == undefined || best[c-1] == undefined){
+                bestPosition[c-1] = [];
+                best[c-1] = 0;
+                return false;
+            }
+            return best[c-1];
+        }   
+    </script>
+</body>
+</html>
